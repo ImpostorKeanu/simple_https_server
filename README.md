@@ -31,7 +31,7 @@ optional arguments:
   --gkeyfile GKEYFILE   Path to keyfile to be generated.
 ```
 
-## Generate Certificate and Start the Server
+## Start the Server on localhost using a self-signed certificate
 
 ```
 user@computer:simple_https_server~> python3 server.py -i 127.0.0.1 -p 8080 --generate
