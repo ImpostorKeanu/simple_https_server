@@ -8,7 +8,7 @@ pointing to one on disk.
 
 ## Getting Help
 
-```bash
+```
 user@computer:simple_https_server~> python3.6 server.py -h
 usage: SimpleHTTPSServer [-h] --interface INTERFACE --port PORT
                          [--certfile CERTFILE] [--keyfile KEYFILE]
@@ -33,7 +33,7 @@ optional arguments:
 
 ## Generate Certificate and Start the Server
 
-```bash
+```
 user@computer:simple_https_server~> python3 server.py -i 127.0.0.1 -p 8080 --generate
 
 SimpleHTTPSServer
