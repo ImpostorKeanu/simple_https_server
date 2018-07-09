@@ -4,9 +4,6 @@ import argparse
 import http.server
 import ssl
 from OpenSSL import crypto, SSL
-from socket import gethostname
-from pprint import pprint
-from time import gmtime, mktime
 
 class ArgumentError(BaseException):
     pass
