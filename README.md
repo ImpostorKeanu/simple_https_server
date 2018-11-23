@@ -4,6 +4,10 @@ This python3.6 script simplifies the process of bringing a TLS encrypted HTTPS
 server online. It can generate a random self-signed certificate or accept values
 pointing to one on disk.
 
+# Dependencies
+
+Requires: ```aptitude install python3-openssl```
+
 # Examples
 
 ## Getting Help
