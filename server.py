@@ -3,7 +3,9 @@
 import argparse
 import http.server
 import ssl
+
 from OpenSSL import crypto, SSL
+from random import randint
 
 class ArgumentError(BaseException):
     pass
@@ -50,7 +52,7 @@ def generate_certificate(certfile, keyfile):
     # create a self-signed cert
     cert = crypto.X509()
     cert.get_subject().C  = "US"
-    cert.get_subject().ST = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    cert.get_subject().ST = str(randint(1,10000000))
     cert.get_subject().L  = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
     cert.get_subject().O  = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
     cert.get_subject().OU = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD" 
@@ -80,7 +82,7 @@ if __name__ == '__main__':
         description="Start a listening HTTPS server.")
     parser.add_argument('--interface', '-i', required=True,
         help="Interface/IP address the server will bind to.")
-    parser.add_argument('--port', '-p', required=True, type=int,
+    parser.add_argument('--port', '-p', default=443, type=int,
         help="Port the server will listen on.")
     parser.add_argument('--certfile', '-c', default=None,
         help="Certificate file for the server to uce")
