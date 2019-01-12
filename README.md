@@ -6,8 +6,27 @@ pointing to one on disk.
 
 # Dependencies
 
-- Requires: ```aptitude install python3-openssl python3-pip libffi-dev```
-- and: ```python3.6 -m pip install -U pyOpenSSL```
+Python3.6 is required minimally. If being implemented on a Debian Stretch instance, then the sources file needs to be updated to pull from the testing repositories.:
+
+```
+deb http://deb.debian.org/debian testing main contrib non-free
+deb-src http://deb.debian.org/debian testing main contrib non-free
+```
+
+If being deployed on a Digital Ocean VPS, the following lines will need to be updated in the sources list:
+
+```
+deb http://mirrors.digitalocean.com/debian testing main contrib non-free
+deb-src http://mirrors.digitalocean.com/debian testing main contrib non-free
+```
+
+Finall, install all the junk: 
+
+```
+aptitude update
+aptitude install python3-openssl python3-pip libffi-dev
+python3.6 -m pip install -U pyOpenSSL
+```
 
 # Examples
 
