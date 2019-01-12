@@ -6,7 +6,8 @@ pointing to one on disk.
 
 # Dependencies
 
-Requires: ```aptitude install python3-openssl```
+- Requires: ```aptitude install python3-openssl python3-pip libffi-dev```
+- and: ```python3.6 -m pip install -U pyOpenSSL```
 
 # Examples
 
