@@ -1,4 +1,4 @@
-#!/usr/bin/python3.6
+#!/usr/bin/env python3
 
 import argparse
 import http.server
@@ -6,6 +6,7 @@ import ssl
 
 from OpenSSL import crypto, SSL
 from random import randint
+from base64 import b64encode, b64decode
 
 class ArgumentError(BaseException):
     pass
@@ -16,11 +17,62 @@ def suffix(st,suf='[+]'):
 def sprint(s):
     print(suffix(s))
 
-def run_server(interface=None, port=None, keyfile=None, certfile=None):
+class BasicAuthServer(http.server.HTTPServer):
 
+    def __init__(self, username, password, *args, **kwargs):
+        self.key = str(b64encode(bytes(f'{username}:{password}','utf-8')),'utf-8')
+        super().__init__(*args,**kwargs)
+
+class BasicAuthHandler(http.server.SimpleHTTPRequestHandler):
+    
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html')
+        self.end_headers()
+
+    def do_AUTHHEAD(self):
+        self.send_response(401)
+        self.send_header('WWW-Authenticate', 'Basic realm="simple_https_server", charset="UTF-8"')
+        self.send_header('Content-Type', 'text/html')
+        self.end_headers()
+
+    def do_GET(self):
+        if not self.headers.get('Authorization'):
+            self.do_AUTHHEAD()
+            self.wfile.write(bytes('No Authorization header received.','utf-8'))
+        elif self.headers.get('Authorization') == f'Basic {self.server.key}':
+            super().do_GET()
+        else:
+            self.do_AUTHHEAD()
+            self.wfile.write(bytes(self.headers.get('Authorization'),'utf-8'))
+            self.wfile.write(bytes('Not authenticated','utf-8'))
+
+def run_server(interface=None, port=None, keyfile=None, certfile=None,
+        *args, **kwargs):
+    
     server_address = (interface, port)
-    httpd = http.server.HTTPServer(server_address,
-            http.server.SimpleHTTPRequestHandler)
+
+    # set up basic authentication if credentials are supplied
+    if 'basic_username' in kwargs:
+
+        assert kwargs['basic_username'] and kwargs['basic_password'],(
+            ''''basic_username and basic_password are required
+            for basic authentication'''
+        )
+
+        httpd = BasicAuthServer(kwargs['basic_username'],
+                kwargs['basic_password'],
+                server_address,
+                BasicAuthHandler)
+
+    # just do a regular https server if no credentials are supplied
+    else:
+
+        httpd = http.server.HTTPServer(server_address,
+                http.server.SimpleHTTPRequestHandler)
+
+
+    # wrap the httpd socket in ssl
     httpd.socket = ssl.wrap_socket(httpd.socket,
         server_side=True,
         certfile=certfile,
@@ -94,35 +146,41 @@ if __name__ == '__main__':
         help="Path to certificate file to be generated.")
     parser.add_argument('--gkeyfile', default=keyfile,
         help="Path to keyfile to be generated.")
-    args = parser.parse_args()
 
-    # error message
-    m = None
+    auth_arg_group = parser.add_argument_group('basic_authentication',
+        'Basic authentication arguments.')
+    auth_arg_group.add_argument('--basic-username','-bu',
+        help='Username for basic authentication')
+    auth_arg_group.add_argument('--basic-password','-pu',
+        help='Password for basic authentication')
+
+    args = parser.parse_args()
+    
+    # handle basic auth credentials
+    if args.basic_username and not args.basic_password or (
+        args.basic_password and not args.basic_username):
+        raise ArgumentError("""Script requires a username and password for
+        basic authentication""")
 
     # assure certificate arguments are as expected
     if not args.certfile and not args.keyfile and not args.generate:
-        m = """Script requires either --generate to be set or both of arguments
-        for the --certfile and --keyfile parameters."""
+        raise ArgumentError(
+        """Script requires either --generate to be set or both of arguments
+        for the --certfile and --keyfile parameters.""")
     elif args.certfile and args.keyfile and args.generate:
-        m = """Script requires either arguments for the certfile and keyfile
-        parameters or, alternatively, the generate argument; not both"""
-    
-    if m:
-        raise ArgumentError(m)
+        raise ArgumentError(
+        """Script requires either arguments for the certfile and keyfile
+        parameters or, alternatively, the generate argument; not both""")
 
     print()
     print(parser.prog)
     print()
     sprint("Arguments validated successfully")
 
+
     if args.generate:
         generate_certificate(certfile, keyfile)
         args.certfile = certfile
         args.keyfile = keyfile
 
-    # remove arguments prior to passing via **kwargs
-    for attr in ['generate', 'gcertfile', 'gkeyfile']:
-        args.__delattr__(attr)
-
-    # **args.__dict__ because lazy
     run_server(**args.__dict__)
