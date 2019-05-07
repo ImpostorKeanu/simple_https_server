@@ -3,7 +3,8 @@
 import argparse
 import http.server
 import ssl
-
+from pathlib import Path
+from os import chdir
 from OpenSSL import crypto, SSL
 from random import randint
 from base64 import b64encode, b64decode
@@ -47,13 +48,13 @@ class BasicAuthHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(bytes(self.headers.get('Authorization'),'utf-8'))
             self.wfile.write(bytes('Not authenticated','utf-8'))
 
-def run_server(interface=None, port=None, keyfile=None, certfile=None,
+def run_server(interface, port, keyfile, certfile, 
         *args, **kwargs):
     
     server_address = (interface, port)
 
     # set up basic authentication if credentials are supplied
-    if 'basic_username' in kwargs:
+    if kwargs['basic_username']:
 
         assert kwargs['basic_username'] and kwargs['basic_password'],(
             ''''basic_username and basic_password are required
@@ -125,30 +126,44 @@ def generate_certificate(certfile, keyfile):
 
 if __name__ == '__main__':
 
+
+    parser = argparse.ArgumentParser(prog="SimpleHTTPSServer",
+        description="Start a listening HTTPS server.")
+
+    server_group = parser.add_argument_group('Basic Server Configuration',
+        '''Use the following parameters to apply basic server
+        configurations''')
+    server_group.add_argument('--interface', '-i', required=True,
+        help="Interface/IP address the server will bind to.")
+    server_group.add_argument('--port', '-p', default=443, type=int,
+        help="Port the server will listen on.")
+    server_group.add_argument('--webroot','-wr',
+        default='.',
+        help='Directory from which to serve files.')
+
+    cert_group = parser.add_argument_group('x509 Certificate Configuration',
+        '''Use the following parameters to configure the HTTPS certificate
+        ''')
+    cert_group.add_argument('--certfile', '-c', default=None,
+        help="Certificate file for the server to use")
+    cert_group.add_argument('--keyfile', '-k', default=None,
+        help="Keyfile corresponding to certificate file")
+    
     # certificate defaults
      # used for certificate generation
     certfile = '/tmp/self_signed.crt'
     keyfile = '/tmp/self_signed.key'
-
-    parser = argparse.ArgumentParser(prog="SimpleHTTPSServer",
-        description="Start a listening HTTPS server.")
-    parser.add_argument('--interface', '-i', required=True,
-        help="Interface/IP address the server will bind to.")
-    parser.add_argument('--port', '-p', default=443, type=int,
-        help="Port the server will listen on.")
-    parser.add_argument('--certfile', '-c', default=None,
-        help="Certificate file for the server to uce")
-    parser.add_argument('--keyfile', '-k', default=None,
-        help="Keyfile corresponding to certificate file")
-    parser.add_argument('--generate', '-g', default=None, action='store_true',
+    cert_group.add_argument('--generate', '-g', default=None, action='store_true',
         help="Generate and use a self-signed certificate in /tmp.")
-    parser.add_argument('--gcertfile', default=certfile,
+    cert_group.add_argument('--gcertfile', default=certfile,
         help="Path to certificate file to be generated.")
-    parser.add_argument('--gkeyfile', default=keyfile,
+    cert_group.add_argument('--gkeyfile', default=keyfile,
         help="Path to keyfile to be generated.")
 
-    auth_arg_group = parser.add_argument_group('basic_authentication',
-        'Basic authentication arguments.')
+    auth_arg_group = parser.add_argument_group('Basic Authentication',
+        '''Use the following parameters to configure the server to use
+        basic authentication.
+        ''')
     auth_arg_group.add_argument('--basic-username','-bu',
         help='Username for basic authentication')
     auth_arg_group.add_argument('--basic-password','-pu',
@@ -171,6 +186,19 @@ if __name__ == '__main__':
         raise ArgumentError(
         """Script requires either arguments for the certfile and keyfile
         parameters or, alternatively, the generate argument; not both""")
+
+    if args.webroot != '.':
+
+        p = Path(args.webroot)
+
+        if not p.exists():
+            raise ArgumentError('''Path to webroot does not exist
+            ''')
+        elif not p.is_dir():
+            raise ArgumentError('''Webroot is not a directory
+            ''')
+
+        chdir(args.webroot)
 
     print()
     print(parser.prog)
