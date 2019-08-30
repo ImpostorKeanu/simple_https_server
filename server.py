@@ -49,7 +49,9 @@ class BasicAuthHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(bytes('Not authenticated','utf-8'))
 
 def run_server(interface, port, keyfile, certfile, 
-        *args, **kwargs):
+        webroot=None, *args, **kwargs):
+
+    webroot=webroot or '.'
     
     server_address = (interface, port)
 
@@ -71,7 +73,7 @@ def run_server(interface, port, keyfile, certfile,
 
         httpd = http.server.HTTPServer(server_address,
                 http.server.SimpleHTTPRequestHandler)
-
+    
 
     # wrap the httpd socket in ssl
     httpd.socket = ssl.wrap_socket(httpd.socket,
@@ -79,6 +81,8 @@ def run_server(interface, port, keyfile, certfile,
         certfile=certfile,
         keyfile=keyfile,
         ssl_version=ssl.PROTOCOL_TLSv1)
+
+    chdir(webroot)
 
     try:
         sprint("Running https server")
@@ -197,8 +201,6 @@ if __name__ == '__main__':
         elif not p.is_dir():
             raise ArgumentError('''Webroot is not a directory
             ''')
-
-        chdir(args.webroot)
 
     print()
     print(parser.prog)
