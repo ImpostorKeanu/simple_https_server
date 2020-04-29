@@ -4,7 +4,7 @@ import argparse
 import http.server
 import ssl
 from pathlib import Path
-from os import chdir
+from os import chdir,remove
 import os
 from OpenSSL import crypto, SSL
 from random import randint
@@ -193,6 +193,10 @@ def run_server(interface, port, keyfile, certfile,
         httpd.shutdown()
         sprint("Exiting")
         print()
+    finally:
+        if kwargs['generate']:
+            remove('/tmp/self_signed.crt')
+            remove('/tmp/self_signed.key')
 
 def generate_certificate(certfile, keyfile):
 
