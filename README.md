@@ -6,6 +6,11 @@ pointing to one on disk.
 
 *Now supports webroot configuration and basic auth!*
 
+# Thanks
+
+Special thanks to @touilleMan and @UniIsland for providing code to support
+file uploads. 
+
 # Dependencies
 
 Python3.6 is required minimally. If being implemented on a Debian Stretch instance, then the sources file needs to be updated to pull from the testing repositories.:
