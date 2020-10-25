@@ -41,7 +41,83 @@ class BasicAuthServer(http.server.HTTPServer):
         self.key = str(b64encode(bytes(f'{username}:{password}','utf-8')),'utf-8')
         super().__init__(*args,**kwargs)
 
+def do_POST(self):
+    """Serve a POST request."""
+    r, info = self.deal_post_data()
+    f = BytesIO()
+    f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
+    f.write(b"<html>\n<title>Upload Result Page</title>\n")
+    f.write(b"<body>\n<h2>Upload Result Page</h2>\n")
+    f.write(b"<hr>\n")
+    if r:
+        f.write(b"<strong>Success: </strong>")
+    else:
+        f.write(b"<strong>Failed: </strong>")
+    f.write(info.encode())
+    f.write(("<br><a href=\"%s\">back</a>" % self.headers['referer']).encode())
+    f.write(b"</small></body>\n</html>\n")
+    length = f.tell()
+    f.seek(0)
+    self.send_response(200)
+    self.send_header("Content-type", "text/html")
+    self.send_header("Content-Length", str(length))
+    self.end_headers()
+    if f:
+        self.copyfile(f, self.wfile)
+        f.close()
+
+def list_directory(self, path):
+    """Helper to produce a directory listing (absent index.html).
+    Return value is either a file object, or None (indicating an
+    error).  In either case, the headers are sent, making the
+    interface the same as for send_head().
+    """
+    try:
+        list = os.listdir(path)
+    except os.error:
+        self.send_error(404, "No permission to list directory")
+        return None
+    list.sort(key=lambda a: a.lower())
+    f = BytesIO()
+    displaypath = html.escape(urllib.parse.unquote(self.path))
+    f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
+    f.write(("<html>\n<title>Directory listing for %s</title>\n" % displaypath).encode())
+    f.write(("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath).encode())
+    f.write(b"<hr>\n")
+    f.write(b"<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
+    f.write(b"<input name=\"file\" type=\"file\"/>")
+    f.write(b"<input type=\"submit\" value=\"upload\"/></form>\n")
+    f.write(b"<hr>\n<ul>\n")
+    for name in list:
+        fullname = os.path.join(path, name)
+        displayname = linkname = name
+        # Append / for directories or @ for symbolic links
+        if os.path.isdir(fullname):
+            displayname = name + "/"
+            linkname = name + "/"
+        if os.path.islink(fullname):
+            displayname = name + "@"
+            # Note: a link to a directory displays with @ and links with /
+        f.write(('<li><a href="%s">%s</a>\n'
+                % (urllib.parse.quote(linkname), html.escape(displayname))).encode())
+    f.write(b"</ul>\n<hr>\n</body>\n</html>\n")
+    length = f.tell()
+    f.seek(0)
+    self.send_response(200)
+    self.send_header("Content-type", "text/html")
+    self.send_header("Content-Length", str(length))
+    self.end_headers()
+    return f
+
 class CorsHandler(http.server.SimpleHTTPRequestHandler):
+
+    @property
+    def client_ip(self):
+        return self.client_address[0]
+
+    @property
+    def client_port(self):
+        return self.client_address[1]
 
     # Stolen directly from http.server.SimpleHTTPRequestHanlder because I couldn't
     # find a simple way to add an Access-Control-Allow-Origin headers since this
@@ -133,49 +209,6 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
             f.close()
             raise
 
-    def list_directory(self, path):
-        """Helper to produce a directory listing (absent index.html).
-        Return value is either a file object, or None (indicating an
-        error).  In either case, the headers are sent, making the
-        interface the same as for send_head().
-        """
-        try:
-            list = os.listdir(path)
-        except os.error:
-            self.send_error(404, "No permission to list directory")
-            return None
-        list.sort(key=lambda a: a.lower())
-        f = BytesIO()
-        displaypath = html.escape(urllib.parse.unquote(self.path))
-        f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
-        f.write(("<html>\n<title>Directory listing for %s</title>\n" % displaypath).encode())
-        f.write(("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath).encode())
-        f.write(b"<hr>\n")
-        f.write(b"<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
-        f.write(b"<input name=\"file\" type=\"file\"/>")
-        f.write(b"<input type=\"submit\" value=\"upload\"/></form>\n")
-        f.write(b"<hr>\n<ul>\n")
-        for name in list:
-            fullname = os.path.join(path, name)
-            displayname = linkname = name
-            # Append / for directories or @ for symbolic links
-            if os.path.isdir(fullname):
-                displayname = name + "/"
-                linkname = name + "/"
-            if os.path.islink(fullname):
-                displayname = name + "@"
-                # Note: a link to a directory displays with @ and links with /
-            f.write(('<li><a href="%s">%s</a>\n'
-                    % (urllib.parse.quote(linkname), html.escape(displayname))).encode())
-        f.write(b"</ul>\n<hr>\n</body>\n</html>\n")
-        length = f.tell()
-        f.seek(0)
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.send_header("Content-Length", str(length))
-        self.end_headers()
-        return f
-
     def translate_path(self, path):
         """Translate a /-separated PATH to the local filename syntax.
         Components that mean special things to the local file system
@@ -239,46 +272,23 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         '.h': 'text/plain',
         })
 
-    def do_POST(self):
-        """Serve a POST request."""
-        r, info = self.deal_post_data()
-        print((r, info, "by: ", self.client_address))
-        f = BytesIO()
-        f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
-        f.write(b"<html>\n<title>Upload Result Page</title>\n")
-        f.write(b"<body>\n<h2>Upload Result Page</h2>\n")
-        f.write(b"<hr>\n")
-        if r:
-            f.write(b"<strong>Success:</strong>")
-        else:
-            f.write(b"<strong>Failed:</strong>")
-        f.write(info.encode())
-        f.write(("<br><a href=\"%s\">back</a>" % self.headers['referer']).encode())
-        f.write(b"</small></body>\n</html>\n")
-        length = f.tell()
-        f.seek(0)
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.send_header("Content-Length", str(length))
-        self.end_headers()
-        if f:
-            self.copyfile(f, self.wfile)
-            f.close()
-        
     def deal_post_data(self):
         content_type = self.headers['content-type']
         if not content_type:
+            self.log_error("Content-Type header doesn't countain boundary")
             return (False, "Content-Type header doesn't contain boundary")
         boundary = content_type.split("=")[1].encode()
         remainbytes = int(self.headers['content-length'])
         line = self.rfile.readline()
         remainbytes -= len(line)
         if not boundary in line:
+            self.log_error("Content does not begin with boundary")
             return (False, "Content NOT begin with boundary")
         line = self.rfile.readline()
         remainbytes -= len(line)
         fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
         if not fn:
+            self.log_error("Can't find out file name...")
             return (False, "Can't find out file name...")
         path = self.translate_path(self.path)
         fn = os.path.join(path, fn[0])
@@ -289,6 +299,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         try:
             out = open(fn, 'wb')
         except IOError:
+            self.log_error("Cannot write to target directory. (Permissions Problem)")
             return (False, "Can't create file to write, do you have permission to write?")
                 
         preline = self.rfile.readline()
@@ -302,11 +313,14 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
                     preline = preline[0:-1]
                 out.write(preline)
                 out.close()
+                self.log_message("File '%s' uploaded by '%s:%d'",fn, self.client_ip, self.client_port)
                 return (True, "File '%s' upload success!" % fn)
             else:
                 out.write(preline)
                 preline = line
-        return (False, "Unexpect Ends of data.")
+
+        self.log_message("Unexpected end of data")
+        return (False, "Unexpected end of data")
 
 class BasicAuthHandler(CorsHandler):
     
@@ -322,6 +336,7 @@ class BasicAuthHandler(CorsHandler):
         self.end_headers()
 
     def do_GET(self):
+
         if not self.headers.get('Authorization'):
             self.do_AUTHHEAD()
             self.wfile.write(bytes('No Authorization header received.','utf-8'))
@@ -332,10 +347,29 @@ class BasicAuthHandler(CorsHandler):
             self.wfile.write(bytes(self.headers.get('Authorization'),'utf-8'))
             self.wfile.write(bytes('Not authenticated','utf-8'))
 
+def do_basic_POST(self):
+
+    if not self.headers.get('Authorization'):
+        self.do_AUTHHEAD()
+        self.wfile.write(bytes('No Authorization header received.','utf-8'))
+    elif self.headers.get('Authorization') == f'Basic {self.server.key}':
+        super().do_POST()
+    else:
+        self.do_AUTHHEAD()
+        self.wfile.write(bytes(self.headers.get('Authorization'),'utf-8'))
+        self.wfile.write(bytes('Not authenticated','utf-8'))
+
 def run_server(interface, port, keyfile, certfile, 
-        webroot=None, *args, **kwargs):
+        webroot=None, enable_uploads=False, *args, **kwargs):
 
     webroot=webroot or '.'
+
+    # Update CorsHandler with upload functionality
+    if enable_uploads:
+
+        BasicAuthHandler.do_POST = do_basic_POST    # Enforce authentication for upload
+        CorsHandler.do_POST = do_POST               # POST method support
+        CorsHandler.list_directory = list_directory # Modified directory listing
     
     server_address = (interface, port)
 
@@ -432,6 +466,9 @@ if __name__ == '__main__':
     server_group.add_argument('--webroot','-wr',
         default='.',
         help='Directory from which to serve files.')
+    server_group.add_argument('--enable-uploads','-eu',
+        action='store_true',
+        help='Enable file uploads via POST request')
 
     cert_group = parser.add_argument_group('x509 Certificate Configuration',
         '''Use the following parameters to configure the HTTPS certificate
