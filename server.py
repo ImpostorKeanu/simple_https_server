@@ -17,6 +17,7 @@ import shutil
 import mimetypes
 import re
 from io import BytesIO
+import email
 
 '''
 Credit to the following people for providing file upload capabilities:
