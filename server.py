@@ -354,7 +354,7 @@ def do_basic_POST(self):
         self.do_AUTHHEAD()
         self.wfile.write(bytes('No Authorization header received.','utf-8'))
     elif self.headers.get('Authorization') == f'Basic {self.server.key}':
-        super().do_POST()
+        super(self.__class__,self).do_POST()
     else:
         self.do_AUTHHEAD()
         self.wfile.write(bytes(self.headers.get('Authorization'),'utf-8'))
