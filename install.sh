@@ -11,6 +11,6 @@ fi
 
 wrap 'Installing APT Packages'
 apt-get update
-apt-get install python3 python3-pip python3-openssl python3-pip libffi-dev
+apt-get install python3 python3-pip python3-openssl python3-pip libffi-dev -y
 wrap 'Installing Python Packages'
 python3 -m pip install -r requirements.txt
