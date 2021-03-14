@@ -1,3 +1,15 @@
+var reloadFlag = false;
+var interval;
+function reloadWait () {
+    interval = setInterval(function(){
+        if(reloadFlag){
+            reloadFlag=false;
+            document.location.reload();
+        }
+    })
+}
+reloadWait();
+
 function contentToBuffer(b64){
 	var len = b64.length;
 	bytes = new Uint8Array(len);
@@ -17,11 +29,11 @@ function decode64(b64,iterations){
 	return blob;
 }
 
-
 // For uploads
 function encoder(iterations){
 	var form = document.getElementsByName("form");
-	var input = document.querySelector('input[type="file"]')
+	var submit = document.getElementsByName("submit");
+	var input = document.querySelector('input[type="file"]');
 	var file = input.files[0];
 	if(!iterations) {iterations = 1};
 	var reader = new FileReader();
@@ -34,20 +46,17 @@ function encoder(iterations){
 			data = window.btoa(data);
 		}
 
-        console.log(data);
-
 		// Create new form data
 		var formData = new FormData();
 
 		formData.append("file", new Blob([data],{type: "text/base64"}), file.name);
 
-        console.log(formData);
-
 		// Make the HTTP request
 		var xhttp = new XMLHttpRequest();
+        xhttp.timeout=30000;
 		xhttp.open("POST", "/", true);
 		xhttp.send(formData);
-        document.location.reload();
+        reloadFlag=true;
 	}
 	reader.readAsBinaryString(file);
     return false;
@@ -55,9 +64,9 @@ function encoder(iterations){
 
 // For downloads
 function decoder(fname){
-    console.log('decoder called');
 	var xhttp = new XMLHttpRequest();
 	xhttp.open("GET",fname,true);
+    xhttp.timeout=30000;
 	xhttp.onreadystatechange = function() {
 		if(this.readyState == 4 && this.status == 200){
 			var blob = decode64(this.responseText, 2);

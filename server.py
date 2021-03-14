@@ -19,6 +19,7 @@ import mimetypes
 import re
 from io import BytesIO
 import email
+from hashlib import md5
 
 '''
 Credit to the following people for providing file upload capabilities:
@@ -27,6 +28,11 @@ Credit to the following people for providing file upload capabilities:
     - https://gist.github.com/UniIsland
         - https://gist.github.com/UniIsland/3346170
 '''
+
+def md5sum(data):
+    m = md5()
+    m.update(data)
+    return m.hexdigest()
 
 class ArgumentError(BaseException):
     pass
@@ -98,7 +104,7 @@ def list_directory(self, path):
     else:
         f.write(b"<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
     f.write(b"<input name=\"file\" type=\"file\"/>")
-    f.write(b"<input type=\"submit\" value=\"upload\"/></form>\n")
+    f.write(b"<input name=\"submit\" type=\"submit\" value=\"Begin Upload\"/></form>\n")
     f.write(b"<hr>\n<ul>\n")
 
     # Generate download links
@@ -240,21 +246,49 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
 
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-type", ctype)
-            self.send_header("Content-Length", str(fs[6]))
             self.send_header("Last-Modified",
                 self.date_time_string(fs.st_mtime))
+
             # Adding Access-Control-Allow-Origin header
             self.send_header('Access-Control-Allow-Origin','*')
             self.end_headers()
 
             if CorsHandler.B64_ENCODE_PAYLOAD:
+
+                # Read in the file and prepare for encoding
                 encoded = f.read()
+                self.log_message(
+                    'Encoding target download file {} ({} bytes, md5sum: {})' \
+                        .format(path,
+                            len(encoded),
+                            md5sum(encoded))
+                )
+
                 # TODO: Make iterations configurable
-                for i in range(0,2):
-                    encoded = b64encode(encoded)
+                for i in range(0,2): encoded = b64encode(encoded)
+
+                encoded_length = len(encoded)
+
+                self.log_message(
+                    'File encoding success {} ({} bytes, md5sum: {})' \
+                        .format(path,
+                            encoded_length,
+                            md5sum(encoded))
+                )
+
+                # Update the content-length header to reflect the length
+                # of the encoded value
+                self.send_header("Content-Length", encoded_length)
                 return BytesIO(encoded)
 
+            else:
+
+                # Update the content-length header with the length of the
+                # normal value
+                self.send_header("Content-Length", str(fs[6]))
+
             return f
+
         except:
             f.close()
             raise
@@ -323,9 +357,10 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         })
 
     def deal_post_data(self):
+
         content_type = self.headers['content-type']
         if not content_type:
-            self.log_error("Content-Type header doesn't countain boundary")
+            self.log_error("Content-Type header doesn't contain boundary")
             return (False, "Content-Type header doesn't contain boundary")
         boundary = content_type.split("=")[1].encode()
         remainbytes = int(self.headers['content-length'])
@@ -348,6 +383,11 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         remainbytes -= len(line)
 
         # Prepare the output file
+        self.log_message('Handling POST request: {} {}:{}'.format(
+                fn, self.client_ip, self.client_port
+            )
+        )
+
         try:
             out = open(fn, 'wb')
         except IOError:
@@ -373,9 +413,14 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
                     # Read in the file content
                     with open(fn,'rb') as f: data = f.read()
 
+                    self.log_message('Decoding uploaded file {} ({} bytes)' \
+                        .format(fn, len(data)))
+
                     # Decode the data
-                    for i in range(0,2):
-                        data = b64decode(data)
+                    for i in range(0,2): data = b64decode(data)
+
+                    self.log_message('Decoded uploaded file {} ({} bytes, md5sum: {})' \
+                        .format(fn, len(data), md5sum(data)))
 
                     # Open and write the decoded content
                     with open(fn,'wb') as f: f.write(data)
