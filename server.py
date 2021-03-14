@@ -85,14 +85,28 @@ def list_directory(self, path):
     f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
     f.write(("<html>\n<title>Directory listing for %s</title>\n" % displaypath).encode())
     f.write(("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath).encode())
+
+    if self.B64_ENCODE_PAYLOAD:
+        # Insert JavaScript for decoding
+        f.write("<script type='text/javascript'>\n{}</script>\n".format(
+            CorsHandler.B64_JS_TEMPLATE).encode('utf8')
+        )
+
     f.write(b"<hr>\n")
-    f.write(b"<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
+    if self.B64_ENCODE_PAYLOAD:
+        f.write(b"<form ENCTYPE=\"multipart/form-data\" onsubmit=\"return encoder(2);\">")
+    else:
+        f.write(b"<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
     f.write(b"<input name=\"file\" type=\"file\"/>")
     f.write(b"<input type=\"submit\" value=\"upload\"/></form>\n")
     f.write(b"<hr>\n<ul>\n")
+
+    # Generate download links
     for name in list:
+
         fullname = os.path.join(path, name)
         displayname = linkname = name
+
         # Append / for directories or @ for symbolic links
         if os.path.isdir(fullname):
             displayname = name + "/"
@@ -100,8 +114,31 @@ def list_directory(self, path):
         if os.path.islink(fullname):
             displayname = name + "@"
             # Note: a link to a directory displays with @ and links with /
-        f.write(('<li><a href="%s">%s</a>\n'
-                % (urllib.parse.quote(linkname), html.escape(displayname))).encode())
+
+        linkname = urllib.parse.quote(linkname)
+        displayname = html.escape(displayname)
+
+        # TODO: Handle insertion of JS links
+        if self.B64_ENCODE_PAYLOAD:
+            # implenet call to JS via onClick
+            
+            f.write(
+                    '<li><a href="javascript:decoder(\'{}\')">{}</a>\n'.format(
+                    linkname,
+                    linkname,
+                    displayname).encode('utf8')
+            )
+
+        else:
+
+            # Non-JS links
+            f.write(
+                '<li><a href="{}">{}</a>\n'.format(
+                    linkname,
+                    displayname
+                ).encode('utf8')
+            )
+
     f.write(b"</ul>\n<hr>\n</body>\n</html>\n")
     length = f.tell()
     f.seek(0)
@@ -112,6 +149,9 @@ def list_directory(self, path):
     return f
 
 class CorsHandler(http.server.SimpleHTTPRequestHandler):
+
+    B64_ENCODE_PAYLOAD = False
+    B64_JS_TEMPLATE = None
 
     @property
     def client_ip(self):
@@ -206,6 +246,14 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
             # Adding Access-Control-Allow-Origin header
             self.send_header('Access-Control-Allow-Origin','*')
             self.end_headers()
+
+            if CorsHandler.B64_ENCODE_PAYLOAD:
+                encoded = f.read()
+                # TODO: Make iterations configurable
+                for i in range(0,2):
+                    encoded = b64encode(encoded)
+                return BytesIO(encoded)
+
             return f
         except:
             f.close()
@@ -298,12 +346,15 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         remainbytes -= len(line)
         line = self.rfile.readline()
         remainbytes -= len(line)
+
+        # Prepare the output file
         try:
             out = open(fn, 'wb')
         except IOError:
             self.log_error("Cannot write to target directory. (Permissions Problem)")
             return (False, "Can't create file to write, do you have permission to write?")
-                
+        
+        # Read file content
         preline = self.rfile.readline()
         remainbytes -= len(preline)
         while remainbytes > 0:
@@ -315,6 +366,20 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
                     preline = preline[0:-1]
                 out.write(preline)
                 out.close()
+
+                # TODO: Handle decoding of uploads
+                if CorsHandler.B64_ENCODE_PAYLOAD:
+
+                    # Read in the file content
+                    with open(fn,'rb') as f: data = f.read()
+
+                    # Decode the data
+                    for i in range(0,2):
+                        data = b64decode(data)
+
+                    # Open and write the decoded content
+                    with open(fn,'wb') as f: f.write(data)
+
                 self.log_message("File '%s' uploaded by '%s:%d'",fn, self.client_ip, self.client_port)
                 return (True, "File '%s' upload success!" % fn)
             else:
@@ -333,7 +398,7 @@ class BasicAuthHandler(CorsHandler):
 
     def do_AUTHHEAD(self):
         self.send_response(401)
-        self.send_header('WWW-Authenticate', 'Basic realm="simple_https_server", charset="UTF-8"')
+        self.send_header('WWW-Authenticate', 'Basic realm="internal", charset="UTF-8"')
         self.send_header('Content-Type', 'text/html')
         self.end_headers()
 
@@ -362,7 +427,21 @@ def do_basic_POST(self):
         self.wfile.write(bytes('Not authenticated','utf-8'))
 
 def run_server(interface, port, keyfile, certfile, 
-        webroot=None, enable_uploads=False, *args, **kwargs):
+        webroot=None, enable_uploads=False, enable_b64=False,
+        *args, **kwargs):
+
+    # ============================
+    # CONFIGURE BASE64 OBFUSCATION
+    # ============================
+
+    CorsHandler.B64_ENCODE_PAYLOAD = enable_b64
+
+    if enable_b64:
+
+        # Get the JavaScript template
+        with open(str(Path(__file__).resolve().parent.absolute()) + \
+                '/templates/b64_obfuscation.js','r') as infile:
+            CorsHandler.B64_JS_TEMPLATE = infile.read()
 
     webroot=webroot or '.'
 
@@ -499,6 +578,16 @@ if __name__ == '__main__':
         help='Username for basic authentication')
     auth_arg_group.add_argument('--basic-password','-bp',
         help='Password for basic authentication')
+
+    # obfuscation
+    obf_group = parser.add_argument_group('Obfuscation',
+        '''Configure the server to implement file obfuscation.
+         JavaScript is injected into the browser to handle
+         obfuscation at the client.
+        ''')
+    obf_group.add_argument('--enable-b64',
+        help='Enable double base 64 obfuscation of files.',
+        action='store_true')
 
     args = parser.parse_args()
     
