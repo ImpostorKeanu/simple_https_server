@@ -124,15 +124,16 @@ def list_directory(self, path):
         linkname = urllib.parse.quote(linkname)
         displayname = html.escape(displayname)
 
-        # TODO: Handle insertion of JS links
+        # Handle insertion of JS links
         if self.B64_ENCODE_PAYLOAD:
+
             # implenet call to JS via onClick
-            
             f.write(
-                    '<li><a href="javascript:decoder(\'{}\')">{}</a>\n'.format(
-                    linkname,
-                    linkname,
-                    displayname).encode('utf8')
+                    self.B64_LINK.format(
+                        linkname,
+                        linkname,
+                        displayname
+                    ).encode('utf8')
             )
 
         else:
@@ -158,6 +159,11 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
 
     B64_ENCODE_PAYLOAD = False
     B64_JS_TEMPLATE = None
+    B64_LINK = None
+    B64_LINK_TEMPLATE = \
+        '<li><a href="javascript:downloader(\'{}\',true)">{}</a>\n'
+    B64_NO_DECODE_LINK_TEMPLATE = \
+        '<li><a href="javascript:downloader(\'{}\',false)">{}</a>\n'
 
     @property
     def client_ip(self):
@@ -473,7 +479,7 @@ def do_basic_POST(self):
 
 def run_server(interface, port, keyfile, certfile, 
         webroot=None, enable_uploads=False, enable_b64=False,
-        *args, **kwargs):
+        disable_browser_decode=False, *args, **kwargs):
 
     # ============================
     # CONFIGURE BASE64 OBFUSCATION
@@ -487,6 +493,12 @@ def run_server(interface, port, keyfile, certfile,
         with open(str(Path(__file__).resolve().parent.absolute()) + \
                 '/templates/b64_obfuscation.js','r') as infile:
             CorsHandler.B64_JS_TEMPLATE = infile.read()
+
+        # Select proper link template based on supplied options
+        if disable_browser_decode:
+            CorsHandler.B64_LINK = CorsHandler.B64_NO_DECODE_LINK_TEMPLATE
+        else:
+            CorsHandler.B64_LINK = CorsHandler.B64_LINK_TEMPLATE
 
     webroot=webroot or '.'
 
@@ -633,8 +645,23 @@ if __name__ == '__main__':
     obf_group.add_argument('--enable-b64',
         help='Enable double base 64 obfuscation of files.',
         action='store_true')
+    obf_group.add_argument('--disable-browser-decode',
+        help='Disable decoding at the browser. This may be disirable '
+        'in situations where browser developers don\'t give a damn ab'
+        'out your privacy and upload your downloaded files to scanner'
+        's.',
+        action='store_true')
 
     args = parser.parse_args()
+
+
+    if not args.enable_b64 and args.disable_browser_decode:
+
+        spring('Warning: Browser decoding has been disabled but '
+        'Base64 encoding has not been enabled. Configuration ign'
+        'ored.')
+
+        args.disable_browser_decode=False
     
     # handle basic auth credentials
     if args.basic_username and not args.basic_password or (

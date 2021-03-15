@@ -63,13 +63,19 @@ function encoder(iterations){
 }
 
 // For downloads
-function decoder(fname){
+function downloader(fname,decode){
+    if(decode == undefined){ decode = false; }
 	var xhttp = new XMLHttpRequest();
 	xhttp.open("GET",fname,true);
     xhttp.timeout=30000;
 	xhttp.onreadystatechange = function() {
 		if(this.readyState == 4 && this.status == 200){
-			var blob = decode64(this.responseText, 2);
+			var blob;
+            if(decode){
+                blob = decode64(this.responseText, 2);
+            } else {
+                blob = new Blob([this.responseText], {type:'text/base64'});
+            }
 			var a = document.createElement('a');
 			var u = window.URL.createObjectURL(blob);
 			document.body.appendChild(a);
