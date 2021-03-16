@@ -223,33 +223,34 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
 
         try:
             fs = os.fstat(f.fileno())
-            # Use browser cache if possible
-            if ("If-Modified-Since" in self.headers
-                    and "If-None-Match" not in self.headers):
-                # compare If-Modified-Since and time of last file modification
-                try:
-                    ims = email.utils.parsedate_to_datetime(
-                        self.headers["If-Modified-Since"])
-                except (TypeError, IndexError, OverflowError, ValueError):
-                    # ignore ill-formed values
-                    pass
-                else:
-                    if ims.tzinfo is None:
-                        # obsolete format with no timezone, cf.
-                        # https://tools.ietf.org/html/rfc7231#section-7.1.1.1
-                        ims = ims.replace(tzinfo=datetime.timezone.utc)
-                    if ims.tzinfo is datetime.timezone.utc:
-                        # compare to UTC datetime of last modification
-                        last_modif = datetime.datetime.fromtimestamp(
-                            fs.st_mtime, datetime.timezone.utc)
-                        # remove microseconds, like in If-Modified-Since
-                        last_modif = last_modif.replace(microsecond=0)
-
-                        if last_modif <= ims:
-                            self.send_response(HTTPStatus.NOT_MODIFIED)
-                            self.end_headers()
-                            f.close()
-                            return None
+            if not CorsHandler.DISABLE_CACHING:
+                # Use browser cache if possible
+                if ("If-Modified-Since" in self.headers
+                        and "If-None-Match" not in self.headers):
+                    # compare If-Modified-Since and time of last file modification
+                    try:
+                        ims = email.utils.parsedate_to_datetime(
+                            self.headers["If-Modified-Since"])
+                    except (TypeError, IndexError, OverflowError, ValueError):
+                        # ignore ill-formed values
+                        pass
+                    else:
+                        if ims.tzinfo is None:
+                            # obsolete format with no timezone, cf.
+                            # https://tools.ietf.org/html/rfc7231#section-7.1.1.1
+                            ims = ims.replace(tzinfo=datetime.timezone.utc)
+                        if ims.tzinfo is datetime.timezone.utc:
+                            # compare to UTC datetime of last modification
+                            last_modif = datetime.datetime.fromtimestamp(
+                                fs.st_mtime, datetime.timezone.utc)
+                            # remove microseconds, like in If-Modified-Since
+                            last_modif = last_modif.replace(microsecond=0)
+    
+                            if last_modif <= ims:
+                                self.send_response(HTTPStatus.NOT_MODIFIED)
+                                self.end_headers()
+                                f.close()
+                                return None
 
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-type", ctype)
@@ -480,7 +481,8 @@ def do_basic_POST(self):
 
 def run_server(interface, port, keyfile, certfile, 
         webroot=None, enable_uploads=False, enable_b64=False,
-        disable_browser_decode=False, *args, **kwargs):
+        disable_browser_decode=False, disable_caching=False,
+        *args, **kwargs):
 
     # ============================
     # CONFIGURE BASE64 OBFUSCATION
@@ -488,6 +490,7 @@ def run_server(interface, port, keyfile, certfile,
 
     CorsHandler.B64_ENCODE_PAYLOAD = enable_b64
     CorsHandler.BROWSER_DECODE_DISABLED = disable_browser_decode
+    CorsHandler.DISABLE_CACHING = disable_caching
 
     if enable_b64:
 
@@ -609,6 +612,9 @@ if __name__ == '__main__':
     server_group.add_argument('--enable-uploads','-eu',
         action='store_true',
         help='Enable file uploads via POST request')
+    server_group.add_argument('--disable-caching','-dc',
+        action='store_true',
+        help='Disable caching')
 
     cert_group = parser.add_argument_group('x509 Certificate Configuration',
         '''Use the following parameters to configure the HTTPS certificate
