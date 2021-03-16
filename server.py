@@ -125,7 +125,7 @@ def list_directory(self, path):
         displayname = html.escape(displayname)
 
         # Handle insertion of JS links
-        if self.B64_ENCODE_PAYLOAD:
+        if self.B64_ENCODE_PAYLOAD and not self.BROWSER_DECODE_DISABLED:
 
             # implenet call to JS via onClick
             f.write(
@@ -160,6 +160,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
     B64_ENCODE_PAYLOAD = False
     B64_JS_TEMPLATE = None
     B64_LINK = None
+    BROWSER_DECODE_DISABLED = False
     B64_LINK_TEMPLATE = \
         '<li><a href="javascript:downloader(\'{}\',true)">{}</a>\n'
     B64_NO_DECODE_LINK_TEMPLATE = \
@@ -486,6 +487,7 @@ def run_server(interface, port, keyfile, certfile,
     # ============================
 
     CorsHandler.B64_ENCODE_PAYLOAD = enable_b64
+    CorsHandler.BROWSER_DECODE_DISABLED = disable_browser_decode
 
     if enable_b64:
 
