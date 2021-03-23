@@ -17,7 +17,7 @@ import html
 import shutil
 import mimetypes
 import re
-from io import BytesIO
+from io import BytesIO,StringIO
 import email
 from hashlib import md5
 
@@ -74,7 +74,86 @@ def do_POST(self):
         self.copyfile(f, self.wfile)
         f.close()
 
-def list_directory(self, path):
+def upload_form(self):
+
+    f = StringIO()
+    if self.B64_ENCODE_PAYLOAD:
+        f.write("<form ENCTYPE=\"multipart/form-data\" method=\"post\" onsubmit=\"return encoder(2);\">")
+    else:
+        f.write("<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
+    f.write("<input name=\"file\" type=\"file\"/><br><br>")
+    f.write("<input name=\"submit\" type=\"submit\" value=\"Upload\"/>")
+    f.write("<input name=\"refresh\" type=\"button\"  onclick=\"loadFiles();\" value=\"Refresh Files\"/>")
+    if self.B64_ENCODE_PAYLOAD:
+        f.write("<br><br><input name=\"encodeCheckbox\" type=\"checkbox\" checked onchange=\"toggleEncodeUploads();\">")
+        f.write("<label for=\"encodeCheckbox\">Base64 encode before <b>uploading</b></label>")
+
+    f.write("</form>\n")
+    f.seek(0)
+    return f.read().encode()
+
+def list_files(self, path, b64_encoded):
+
+    try:
+        list = os.listdir(path)
+    except os.error:
+        self.send_error(404, "No permission to list directory")
+        return None
+
+    list.sort(key=lambda a: a.lower())
+
+    # io object to receive links
+    f = StringIO()
+
+    # html escape the displaypath
+    displaypath = html.escape(urllib.parse.unquote(self.path))
+
+    # Generate download links
+    for name in list:
+
+        is_dir = False
+        fullname = os.path.join(path, name)
+        displayname = linkname = name
+
+        # Append / for directories or @ for symbolic links
+        if os.path.isdir(fullname):
+            is_dir = True
+            displayname = name + "/"
+            linkname = name + "/"
+
+        if os.path.islink(fullname):
+            displayname = name + "@"
+            # Note: a link to a directory displays with @ and links with /
+
+        linkname = urllib.parse.quote(linkname)
+        displayname = html.escape(displayname)
+
+        # Handle insertion of JS links
+        if self.B64_ENCODE_PAYLOAD and not is_dir:
+
+            # implenet call to JS via onClick
+            f.write(
+                    self.B64_LINK.format(
+                        linkname,
+                        linkname,
+                        displayname)
+            )
+
+        else:
+
+            # Non-JS links
+            f.write(
+                '<li><a href="{}">{}</a>\n'.format(
+                    linkname,
+                    displayname
+                )
+            )
+
+    # return the links as a binary string
+    f.seek(0)
+    return f.read().encode()
+
+def list_directory(self, path, b64_encoded):
     """Helper to produce a directory listing (absent index.html).
     Return value is either a file object, or None (indicating an
     error).  In either case, the headers are sent, making the
@@ -92,61 +171,29 @@ def list_directory(self, path):
     f.write(("<html>\n<title>Directory listing for %s</title>\n" % displaypath).encode())
     f.write(("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath).encode())
 
-    if self.B64_ENCODE_PAYLOAD:
-        # Insert JavaScript for decoding
-        f.write("<script type='text/javascript'>\n{}</script>\n".format(
-            CorsHandler.B64_JS_TEMPLATE).encode('utf8')
-        )
+    # Embed JavaScript
+    f.write("<script type='text/javascript'>\n{}</script>\n".format(
+        CorsHandler.B64_JS_TEMPLATE).encode('utf8')
+    )
 
-    f.write(b"<hr>\n")
-    if self.B64_ENCODE_PAYLOAD:
-        f.write(b"<form ENCTYPE=\"multipart/form-data\" onsubmit=\"return encoder(2);\">")
-    else:
-        f.write(b"<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
-    f.write(b"<input name=\"file\" type=\"file\"/>")
-    f.write(b"<input name=\"submit\" type=\"submit\" value=\"Begin Upload\"/></form>\n")
-    f.write(b"<hr>\n<ul>\n")
+    # Generate the upload form
+    f.write(b"<hr>\n"+
+        self.upload_form()+
+        b"<hr>\n<ul>\n")
 
     # Generate download links
-    for name in list:
+    f.write(b"<div id=\"listing\"></div>")
+    f.write(b"</ul>\n<hr>\n")
 
-        fullname = os.path.join(path, name)
-        displayname = linkname = name
+    # Checkbox to toggle decoding of downloaded files
+    if self.B64_ENCODE_PAYLOAD:
+        f.write(b"<input name=\"toggleEncodeDownloadCheckbox\" type=\"checkbox\" onchange=\"toggleEncodeDownloads();\" checked>")
+        f.write(b"<label for=\"toggleEncodeDownloadCheckbox\">Base64 encode <b>before</b> downloading</label>")
+        f.write(b"<br>")
+        f.write(b"<input name=\"toggleDecodeCheckbox\" type=\"checkbox\" onchange=\"toggleDecodeDownloads();\" checked>")
+        f.write(b"<label for=\"toggleDecodeCheckbox\">Base64 decode <b>after</b> downloading</label>")
 
-        # Append / for directories or @ for symbolic links
-        if os.path.isdir(fullname):
-            displayname = name + "/"
-            linkname = name + "/"
-        if os.path.islink(fullname):
-            displayname = name + "@"
-            # Note: a link to a directory displays with @ and links with /
-
-        linkname = urllib.parse.quote(linkname)
-        displayname = html.escape(displayname)
-
-        # Handle insertion of JS links
-        if self.B64_ENCODE_PAYLOAD and not self.BROWSER_DECODE_DISABLED:
-
-            # implenet call to JS via onClick
-            f.write(
-                    self.B64_LINK.format(
-                        linkname,
-                        linkname,
-                        displayname
-                    ).encode('utf8')
-            )
-
-        else:
-
-            # Non-JS links
-            f.write(
-                '<li><a href="{}">{}</a>\n'.format(
-                    linkname,
-                    displayname
-                ).encode('utf8')
-            )
-
-    f.write(b"</ul>\n<hr>\n</body>\n</html>\n")
+    f.write(b"</body>\n</html>\n")
     length = f.tell()
     f.seek(0)
     self.send_response(200)
@@ -162,9 +209,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
     B64_LINK = None
     BROWSER_DECODE_DISABLED = False
     B64_LINK_TEMPLATE = \
-        '<li><a href="javascript:downloader(\'{}\',true)">{}</a>\n'
-    B64_NO_DECODE_LINK_TEMPLATE = \
-        '<li><a href="javascript:downloader(\'{}\',false)">{}</a>\n'
+        '<li><a href="javascript:downloader(\'{}\')">{}</a></li>\n'
 
     @property
     def client_ip(self):
@@ -186,10 +231,33 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         None, in which case the caller has nothing further to do.
         """
 
-        path = self.translate_path(self.path)
+        path, b64_encoded = self.translate_path(self.path)
+
+        # Return to requests for files
+        file_listing = False
+        if path.endswith('/SHTTPSSgetFiles'):
+            path = path.split('/SHTTPSSgetFiles')[0]
+            file_listing = True
+
+            f = BytesIO()
+            f.write(self.list_files(path, b64_encoded))
+            length = f.tell()
+            f.seek(0)
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html')
+            self.send_header('Content-Length', str(length))
+            self.end_headers()
+            return f
+
         f = None
         if os.path.isdir(path):
             parts = urllib.parse.urlsplit(self.path)
+
+            # ====================================
+            # REDIRECT BROWSER BACK TO PATH WITH /
+            # ====================================
+            'Only when in a directory, though'
+
             if not parts.path.endswith('/'):
                 # redirect browser - doing basically what apache does
                 self.send_response(HTTPStatus.MOVED_PERMANENTLY)
@@ -199,13 +267,15 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header("Location", new_url)
                 self.end_headers()
                 return None
+
             for index in "index.html", "index.htm":
                 index = os.path.join(path, index)
                 if os.path.exists(index):
                     path = index
                     break
             else:
-                return self.list_directory(path)
+              return self.list_directory(path,b64_encoded)
+
         ctype = self.guess_type(path)
         # check for trailing "/" which should return 404. See Issue17324
         # The test for this was added in test_httpserver.py
@@ -261,7 +331,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin','*')
             self.end_headers()
 
-            if CorsHandler.B64_ENCODE_PAYLOAD:
+            if CorsHandler.B64_ENCODE_PAYLOAD and b64_encoded:
 
                 # Read in the file and prepare for encoding
                 encoded = f.read()
@@ -307,8 +377,17 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         (e.g. drive or directory names) are ignored.  (XXX They should
         probably be diagnosed.)
         """
-        # abandon query parameters
-        path = path.split('?',1)[0]
+
+        # Capture B64 encoding parameter
+        b64_encoded = False
+        path = path.split('?',1)
+
+        if len(path) > 1:
+            path,query = path
+            if query.find('true') > -1:
+                b64_encoded = True
+        else: path = path[0]
+
         path = path.split('#',1)[0]
         path = posixpath.normpath(urllib.parse.unquote(path))
         words = path.split('/')
@@ -319,7 +398,8 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
             head, word = os.path.split(word)
             if word in (os.curdir, os.pardir): continue
             path = os.path.join(path, word)
-        return path
+
+        return path,b64_encoded
  
     def copyfile(self, source, outputfile):
         """Copy all data between two file objects.
@@ -383,14 +463,19 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         if not fn:
             self.log_error("Can't find out file name...")
             return (False, "Can't find out file name...")
-        path = self.translate_path(self.path)
+
+        path, b64_encoded = self.translate_path(self.path)
         fn = os.path.join(path, fn[0])
+
+        # ==========================
+        # BEGIN READING INPUT STREAM
+        # ==========================
+
         line = self.rfile.readline()
         remainbytes -= len(line)
         line = self.rfile.readline()
         remainbytes -= len(line)
 
-        # Prepare the output file
         self.log_message('Handling POST request: {} {}:{}'.format(
                 fn, self.client_ip, self.client_port
             )
@@ -412,11 +497,12 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
                 preline = preline[0:-1]
                 if preline.endswith(b'\r'):
                     preline = preline[0:-1]
+
                 out.write(preline)
                 out.close()
 
                 # TODO: Handle decoding of uploads
-                if CorsHandler.B64_ENCODE_PAYLOAD:
+                if CorsHandler.B64_ENCODE_PAYLOAD and b64_encoded:
 
                     # Read in the file content
                     with open(fn,'rb') as f: data = f.read()
@@ -481,7 +567,7 @@ def do_basic_POST(self):
 
 def run_server(interface, port, keyfile, certfile, 
         webroot=None, enable_uploads=False, enable_b64=False,
-        disable_browser_decode=False, disable_caching=False,
+        disable_caching=False,
         *args, **kwargs):
 
     # ============================
@@ -489,23 +575,20 @@ def run_server(interface, port, keyfile, certfile,
     # ============================
 
     CorsHandler.B64_ENCODE_PAYLOAD = enable_b64
-    CorsHandler.BROWSER_DECODE_DISABLED = disable_browser_decode
     CorsHandler.DISABLE_CACHING = disable_caching
 
     if enable_b64:
+
+        CorsHandler.B64_LINK = CorsHandler.B64_LINK_TEMPLATE
 
         # Get the JavaScript template
         with open(str(Path(__file__).resolve().parent.absolute()) + \
                 '/templates/b64_obfuscation.js','r') as infile:
             CorsHandler.B64_JS_TEMPLATE = infile.read()
 
-        # Select proper link template based on supplied options
-        if disable_browser_decode:
-            CorsHandler.B64_LINK = CorsHandler.B64_NO_DECODE_LINK_TEMPLATE
-        else:
-            CorsHandler.B64_LINK = CorsHandler.B64_LINK_TEMPLATE
-
     webroot=webroot or '.'
+
+    CorsHandler.list_files = list_files
 
     # Update CorsHandler with upload functionality
     if enable_uploads:
@@ -513,6 +596,7 @@ def run_server(interface, port, keyfile, certfile,
         BasicAuthHandler.do_POST = do_basic_POST    # Enforce authentication for upload
         CorsHandler.do_POST = do_POST               # POST method support
         CorsHandler.list_directory = list_directory # Modified directory listing
+        CorsHandler.upload_form = upload_form
     
     server_address = (interface, port)
 
@@ -653,24 +737,9 @@ if __name__ == '__main__':
     obf_group.add_argument('--enable-b64',
         help='Enable double base 64 obfuscation of files.',
         action='store_true')
-    obf_group.add_argument('--disable-browser-decode',
-        help='Disable decoding at the browser. This may be disirable '
-        'in situations where browser developers don\'t give a damn ab'
-        'out your privacy and upload your downloaded files to scanner'
-        's.',
-        action='store_true')
 
     args = parser.parse_args()
 
-
-    if not args.enable_b64 and args.disable_browser_decode:
-
-        spring('Warning: Browser decoding has been disabled but '
-        'Base64 encoding has not been enabled. Configuration ign'
-        'ored.')
-
-        args.disable_browser_decode=False
-    
     # handle basic auth credentials
     if args.basic_username and not args.basic_password or (
         args.basic_password and not args.basic_username):

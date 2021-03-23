@@ -4,11 +4,37 @@ function reloadWait () {
     interval = setInterval(function(){
         if(reloadFlag){
             reloadFlag=false;
-            document.location.reload();
+            loadFiles();
         }
     })
 }
 reloadWait();
+
+var encodeUploads = true;
+var encodeDownloads = true;
+var decodeDownloads = true;
+function toggleEncodeUploads(){
+    encodeUploads=!encodeUploads;
+    console.log(`encodeUploads: ${encodeUploads}`);
+    let e = document.getElementsByTagName("form")[0];
+}
+
+function toggleEncodeDownloads(){
+    encodeDownloads=!encodeDownloads;
+    console.log(`encodeDownloads: ${encodeDownloads}`);
+
+    if(!encodeDownloads && decodeDownloads){
+        console.log('Resetting decode downloads.')
+        toggleDecodeDownloads();
+        var e = document.getElementsByName("toggleDecodeCheckbox")[0];
+        e.checked=false;
+    }
+}
+
+function toggleDecodeDownloads(){
+    decodeDownloads=!decodeDownloads;
+    console.log(`decodeDownloads: ${decodeDownloads}`);
+}
 
 function contentToBuffer(b64){
 	var len = b64.length;
@@ -21,6 +47,7 @@ function contentToBuffer(b64){
 
 function decode64(b64,iterations){
 	if(!iterations) {iterations = 1};
+    console.log('Decoding the file.',iterations);
 	for(;iterations>0;iterations--){
 		b64 = window.atob(b64);
 	}
@@ -39,52 +66,101 @@ function encoder(iterations){
 	var reader = new FileReader();
 	var data;
 	reader.onloadend = function() {
-
-		// Process the file upload
-		var data = reader.result;
-		for(;iterations>0;iterations--){
-			data = window.btoa(data);
-		}
+        console.log('Upload initiated.');
 
 		// Create new form data
 		var formData = new FormData();
 
-		formData.append("file", new Blob([data],{type: "text/base64"}), file.name);
+        if(encodeUploads){
+    		// Process the file upload
+            console.log('Encoding file.');
+	    	var data = reader.result;
+		    for(;iterations>0;iterations--){
+    			data = window.btoa(data);
+	    	}
+		    formData.append("file",
+                new Blob([data],{type: "text/base64"}), file.name);
+            console.log('File encoded. Preparing to submit XHTTP POST request.');
+        } else {
+            formData.append("file", file);
+        }
 
 		// Make the HTTP request
 		var xhttp = new XMLHttpRequest();
         xhttp.timeout=30000;
-		xhttp.open("POST", "/", true);
+		xhttp.open("POST", window.location.pathname+`?e=${encodeUploads}`, true);
+        xhttp.onreadystatechange = function() {
+            if(this.readyState == 4 && this.status == 200){
+                console.log('Upload appears to have succeeded');
+                reloadFlag=true;
+            } else {
+                console.log('Upload appears to have failed.');
+            }
+        }
 		xhttp.send(formData);
-        reloadFlag=true;
 	}
 	reader.readAsBinaryString(file);
     return false;
 }
 
 // For downloads
-function downloader(fname,decode){
-    if(decode == undefined){ decode = false; }
-	var xhttp = new XMLHttpRequest();
-	xhttp.open("GET",fname,true);
-    xhttp.timeout=30000;
-	xhttp.onreadystatechange = function() {
-		if(this.readyState == 4 && this.status == 200){
-			var blob;
-            if(decode){
-                blob = decode64(this.responseText, 2);
-            } else {
-                blob = new Blob([this.responseText], {type:'text/base64'});
-            }
-			var a = document.createElement('a');
-			var u = window.URL.createObjectURL(blob);
-			document.body.appendChild(a);
-			a.style = 'display:none';
-			a.href = u;
-			a.download = fname;
-			a.click();
-			window.URL.revokeObjectURL(u);
-		}
-	}
-	xhttp.send();
+function downloader(fname){
+
+    if(!encodeDownloads){
+
+        console.log(`Using generic download for ${fname}`);
+        window.open(fname+"?=false", "-top");
+
+    } else {
+
+	    var xhttp = new XMLHttpRequest();
+        var uri = fname+`?e=${encodeDownloads}`;
+        console.log(`Requesting download URI: ${uri}`)
+    	xhttp.open("GET",uri,true);
+        xhttp.timeout=30000;
+    	xhttp.onreadystatechange = function() {
+    		if(this.readyState == 4 && this.status == 200){
+    			var blob;
+                if(decodeDownloads){
+                    console.log('Decoding downloaded file.');
+                    blob = decode64(this.responseText, 2);
+                } else {
+                    console.log(
+                        'Converting the file to a blob to force the download.');
+                    blob = new Blob([this.responseText], {type:'text/base64'});
+                }
+    			var a = document.createElement('a');
+    			var u = window.URL.createObjectURL(blob);
+    			document.body.appendChild(a);
+    			a.style = 'display:none';
+    			a.href = u;
+    			a.download = fname;
+                console.log('Forcing the download');
+    			a.click();
+    			window.URL.revokeObjectURL(u);
+    		}
+    	}
+    	xhttp.send();
+
+     }
 }
+
+function genericDownload(fname){
+    window.open(fname+"?e=false", "_top");
+}
+
+function loadFiles(){
+    console.log("Requesting file listing.");
+    var xhttp = new XMLHttpRequest();
+    xhttp.open("GET",window.location.pathname+"SHTTPSSgetFiles",true);
+    xhttp.onreadystatechange = function() {
+        if(this.readyState == 4 && this.status == 200){
+            console.log("Injecting file listing");
+            var e = document.getElementById("listing");
+            e.innerHTML = this.responseText;
+        }
+    }
+    xhttp.send()
+}
+
+window.onload = loadFiles;
