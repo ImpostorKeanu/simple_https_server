@@ -1,5 +1,10 @@
-var reloadFlag = false;
 var interval;
+var reloadFlag = false;
+var encodeUploads = true;
+var encodeDownloads = true;
+var decodeDownloads = true;
+var displayB64 = false;
+
 function reloadWait () {
     interval = setInterval(function(){
         if(reloadFlag){
@@ -10,18 +15,15 @@ function reloadWait () {
 }
 reloadWait();
 
-var encodeUploads = true;
-var encodeDownloads = true;
-var decodeDownloads = true;
 function toggleEncodeUploads(){
     encodeUploads=!encodeUploads;
-    console.log(`encodeUploads: ${encodeUploads}`);
-    let e = document.getElementsByTagName("form")[0];
+    console.log('encodeUploads: '+encodeUploads);
+    var e = document.getElementsByTagName("form")[0];
 }
 
 function toggleEncodeDownloads(){
     encodeDownloads=!encodeDownloads;
-    console.log(`encodeDownloads: ${encodeDownloads}`);
+    console.log('encodeDownloads: '+encodeDownloads);
 
     if(!encodeDownloads && decodeDownloads){
         console.log('Resetting decode downloads.')
@@ -29,11 +31,17 @@ function toggleEncodeDownloads(){
         var e = document.getElementsByName("toggleDecodeCheckbox")[0];
         e.checked=false;
     }
+
 }
 
 function toggleDecodeDownloads(){
     decodeDownloads=!decodeDownloads;
-    console.log(`decodeDownloads: ${decodeDownloads}`);
+    console.log('decodeDownloads: '+decodeDownloads);
+}
+
+function toggleDisplayB64(){
+    displayB64=!displayB64;
+    console.log('displayB64: '+displayB64);
 }
 
 function contentToBuffer(b64){
@@ -88,7 +96,7 @@ function encoder(iterations){
 		// Make the HTTP request
 		var xhttp = new XMLHttpRequest();
         xhttp.timeout=30000;
-		xhttp.open("POST", window.location.pathname+`?e=${encodeUploads}`, true);
+		xhttp.open("POST", window.location.pathname+'?e='+encodeUploads, true);
         xhttp.onreadystatechange = function() {
             if(this.readyState == 4 && this.status == 200){
                 console.log('Upload appears to have succeeded');
@@ -108,14 +116,19 @@ function downloader(fname){
 
     if(!encodeDownloads){
 
-        console.log(`Using generic download for ${fname}`);
-        window.open(fname+"?=false", "-top");
+        console.log('Using generic download for '+fname);
+        window.open(fname+"?=false", "_top");
+
+    } else if(encodeDownloads && displayB64){
+
+        console.log('Displaying B64 encoded variant for '+fname);
+        genericDownload(fname, true, false);
 
     } else {
 
 	    var xhttp = new XMLHttpRequest();
-        var uri = fname+`?e=${encodeDownloads}`;
-        console.log(`Requesting download URI: ${uri}`)
+        var uri = fname+'?e='+encodeDownloads;
+        console.log('Requesting download URI: '+uri)
     	xhttp.open("GET",uri,true);
         xhttp.timeout=30000;
     	xhttp.onreadystatechange = function() {
@@ -145,8 +158,22 @@ function downloader(fname){
      }
 }
 
-function genericDownload(fname){
-    window.open(fname+"?e=false", "_top");
+function genericDownload(fname,encode,tabbed){
+
+    if(encode==undefined){
+        encode=false;
+    } else if(encode){
+        encode=true;
+    }
+
+    if(tabbed){
+        console.log("Opening B64 encoded file in tab");
+        window.open(fname+"?e="+encode,'_blank');
+    } else {
+        console.log("Downloading file directly");
+        window.open(fname+"?e="+encode, "_top");
+    }
+
 }
 
 function loadFiles(){

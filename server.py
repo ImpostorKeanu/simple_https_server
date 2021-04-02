@@ -171,9 +171,14 @@ def list_directory(self, path, b64_encoded):
     f.write(("<html>\n<title>Directory listing for %s</title>\n" % displaypath).encode())
     f.write(("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath).encode())
 
+    # Get the JavaScript template
+    with open(str(Path(__file__).resolve().parent.absolute()) + \
+            '/templates/b64_obfuscation.js','r') as infile:
+        js_template = infile.read()
+
     # Embed JavaScript
     f.write("<script type='text/javascript'>\n{}</script>\n".format(
-        CorsHandler.B64_JS_TEMPLATE).encode('utf8')
+        js_template).encode('utf8')
     )
 
     # Generate the upload form
@@ -192,6 +197,9 @@ def list_directory(self, path, b64_encoded):
         f.write(b"<br>")
         f.write(b"<input name=\"toggleDecodeCheckbox\" type=\"checkbox\" onchange=\"toggleDecodeDownloads();\" checked>")
         f.write(b"<label for=\"toggleDecodeCheckbox\">Base64 decode <b>after</b> downloading</label>")
+        f.write(b"<br>")
+        f.write(b"<input name=\"toggleDisplayB64\" type=\"checkbox\" onchange=\"toggleDisplayB64();\">")
+        f.write(b"<label for=\"toggleDisplayB64\">Display Base64 encoded file <b>instead of downloading</b></label>")
 
     f.write(b"</body>\n</html>\n")
     length = f.tell()
@@ -205,7 +213,6 @@ def list_directory(self, path, b64_encoded):
 class CorsHandler(http.server.SimpleHTTPRequestHandler):
 
     B64_ENCODE_PAYLOAD = False
-    B64_JS_TEMPLATE = None
     B64_LINK = None
     BROWSER_DECODE_DISABLED = False
     B64_LINK_TEMPLATE = \
@@ -442,6 +449,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         '.py': 'text/plain',
         '.c': 'text/plain',
         '.h': 'text/plain',
+        '.txt': 'text/plain',
         })
 
     def deal_post_data(self):
@@ -580,11 +588,6 @@ def run_server(interface, port, keyfile, certfile,
     if enable_b64:
 
         CorsHandler.B64_LINK = CorsHandler.B64_LINK_TEMPLATE
-
-        # Get the JavaScript template
-        with open(str(Path(__file__).resolve().parent.absolute()) + \
-                '/templates/b64_obfuscation.js','r') as infile:
-            CorsHandler.B64_JS_TEMPLATE = infile.read()
 
     webroot=webroot or '.'
 
