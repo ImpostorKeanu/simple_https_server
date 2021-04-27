@@ -281,7 +281,11 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
                     path = index
                     break
             else:
-              return self.list_directory(path,b64_encoded)
+                if CorsHandler.uploads_enabled:
+                    return self.list_directory(path,b64_encoded)
+                else:
+                    return self.list_directory(path)
+
 
         ctype = self.guess_type(path)
         # check for trailing "/" which should return 404. See Issue17324
@@ -600,6 +604,11 @@ def run_server(interface, port, keyfile, certfile,
         CorsHandler.do_POST = do_POST               # POST method support
         CorsHandler.list_directory = list_directory # Modified directory listing
         CorsHandler.upload_form = upload_form
+        CorsHandler.uploads_enabled = True
+
+    else:
+
+        CorsHandler.uploads_enabled = False
     
     server_address = (interface, port)
 
