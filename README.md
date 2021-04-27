@@ -135,9 +135,8 @@ example.
 ### Configuring the Webroot
 
 If you'd like to have the webroot accessible from the host and not just the
-container instance, use a [bind mount](https://docs.docker.com/storage/bind-mounts/). 
-The example makes use of this technique to share from a directory from the `/tmp`
-folder.
+container instance, use a volume. The example makes use of this technique to
+share from a directory from the `/tmp` folder.
 
 **NOTE:** The container path to the webroot must be: `/root/webroot`
 
@@ -167,8 +166,8 @@ mkdir /tmp/webroot
 
 # Run the container
 docker run \
-  --mount type=bind,source=/tmp/webroot,target=/root/webroot \
   -e USERNAME=bhis -e PASSWORD=SuperSecretPassword123 \
+  -v /tmp/webroot:/root/webroot \
   -v /tmp/cert:/root/certificate \
   -v /tmp/key:/root/key \
   -p 8443:443 \
