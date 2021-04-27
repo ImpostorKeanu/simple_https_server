@@ -121,7 +121,6 @@ docker build -t shttpss:latest .
 
 The following environment variables can be passed while running the server:
 
-|---|---|---|
 |Variable|Usage|Default|
 |---|---|---|
 |USERNAME|Username for basic authentication|No default|
@@ -149,8 +148,8 @@ of volumes, as specified by the `-v` flag. The following table summarizes
 where the volumes should be mounted within the container, as demonstrated
 in the example.
 
-|---|---|
 |File|Container Path|
+|---|---|
 |Certificate File|/root/certificate|
 |Private Key File|/root/key|
 
@@ -162,7 +161,7 @@ keypair for for encryption. Once running, the the containerized web server would
 be accessible on port `8443` of the supporting host that would be proxied to port
 `443` of the containerized environment.
 
-```
+```bash
 # Make a temporary webroot
 mkdir /tmp/webroot
 
