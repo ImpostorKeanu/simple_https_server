@@ -169,8 +169,8 @@ mkdir /tmp/webroot
 docker run \
   --mount type=bind,source=/tmp/webroot,target=/root/webroot \
   -e USERNAME=bhis -e PASSWORD=SuperSecretPassword123 \
-  -v /root/cert:/certificate \
-  -v /root/key:/key \
+  -v /tmp/cert:/root/certificate \
+  -v /tmp/key:/root/key \
   -p 8443:443 \
   shttpss:latest
 ```
