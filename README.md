@@ -76,7 +76,7 @@ Basic Authentication:
 
   --basic-username BASIC_USERNAME, -bu BASIC_USERNAME
                         Username for basic authentication
-  --basic-password BASIC_PASSWORD, -pu BASIC_PASSWORD
+  --basic-password BASIC_PASSWORD, -bp BASIC_PASSWORD
                         Password for basic authentication
 
 ```
