@@ -171,7 +171,7 @@ docker run \
   -v /tmp/cert:/root/certificate \
   -v /tmp/key:/root/key \
   -p 8443:443 \
-  --name=shttpss
+  --name=shttpss \
   --rm -it \
   shttpss:latest
 ```
