@@ -1,0 +1,22 @@
+# Tool name, which can differ from the repo name
+name: Simple HTTPS Server
+
+# Maintainer's name and email
+maintainer:
+  name: Justin Angel
+  email: justin@blackhillsinfosec.com
+
+# TTP tags with the format: <MITRE Tactic>/<Technique>
+# URL for reference: https://attack.mitre.org/tactics/enterprise/
+ttps:
+  - defense_evasion/deobfuscate_decode_files_or_information
+  - exfiltration/exfiltration_over_symmetric_encrypted_non_c2_protocol
+  
+# Bulleted high level description. Please keep bullets brief.
+descriptions:
+  - Password protected HTTPS file transfer server.
+  - Capabile of dynamically Base64 encoding/decoding files.
+  
+# Determines if the tool can be discussed publicly
+# Valid Values: true, false
+public: true
