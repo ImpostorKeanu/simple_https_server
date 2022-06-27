@@ -665,7 +665,7 @@ def generate_certificate(certfile, keyfile):
 
     # create a key pair
     k = crypto.PKey()
-    k.generate_key(crypto.TYPE_RSA, 1024)
+    k.generate_key(crypto.TYPE_RSA, 4028)
 
     # create a self-signed cert
     cert = crypto.X509()
