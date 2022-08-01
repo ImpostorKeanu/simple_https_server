@@ -95,12 +95,12 @@ def upload_form(self):
 def list_files(self, path, b64_encoded):
 
     try:
-        list = os.listdir(path)
+        file_list = os.listdir(path)
     except os.error:
         self.send_error(404, "No permission to list directory")
         return None
 
-    list.sort(key=lambda a: a.lower())
+    file_list.sort(key=lambda a: a.lower())
 
     # io object to receive links
     f = StringIO()
@@ -109,7 +109,7 @@ def list_files(self, path, b64_encoded):
     displaypath = html.escape(urllib.parse.unquote(self.path))
 
     # Generate download links
-    for name in list:
+    for name in file_list:
 
         is_dir = False
         fullname = os.path.join(path, name)
@@ -160,11 +160,11 @@ def list_directory(self, path, b64_encoded):
     interface the same as for send_head().
     """
     try:
-        list = os.listdir(path)
+        file_list = os.listdir(path)
     except os.error:
         self.send_error(404, "No permission to list directory")
         return None
-    list.sort(key=lambda a: a.lower())
+    file_list.sort(key=lambda a: a.lower())
     f = BytesIO()
     displaypath = html.escape(urllib.parse.unquote(self.path))
     f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
