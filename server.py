@@ -96,6 +96,7 @@ def list_files(self, path, b64_encoded):
 
     try:
         file_list = os.listdir(path)
+        file_list.insert(0, "..")
     except os.error:
         self.send_error(404, "No permission to list directory")
         return None
