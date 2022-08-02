@@ -1,6 +1,6 @@
 # Purpose
 
-This python3.6 script simplifies the process of bringing a TLS encrypted HTTPS
+This python3 script simplifies the process of bringing a TLS encrypted HTTPS
 server online. It can generate a random self-signed certificate or accept values
 pointing to one on disk.
 
@@ -36,17 +36,18 @@ Finally, install all the junk: `install.sh`
 ## Getting Help
 
 ```
-user@computer:simple_https_server~> python3.6 server.py -h
-Usage: SimpleHTTPSServer [-h] --interface INTERFACE [--port PORT]
-                         [--webroot WEBROOT] [--certfile CERTFILE]
+user@computer:simple_https_server~> python3 server.py -h
+usage: SimpleHTTPSServer [-h] --interface INTERFACE [--port PORT]
+                         [--webroot WEBROOT] [--enable-uploads]
+                         [--disable-caching] [--certfile CERTFILE]
                          [--keyfile KEYFILE] [--generate]
                          [--gcertfile GCERTFILE] [--gkeyfile GKEYFILE]
                          [--basic-username BASIC_USERNAME]
-                         [--basic-password BASIC_PASSWORD]
+                         [--basic-password BASIC_PASSWORD] [--enable-b64]
 
 Start a listening HTTPS server.
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
 
 Basic Server Configuration:
@@ -57,6 +58,10 @@ Basic Server Configuration:
   --port PORT, -p PORT  Port the server will listen on.
   --webroot WEBROOT, -wr WEBROOT
                         Directory from which to serve files.
+  --enable-uploads, -eu
+                        Enable file uploads via POST request
+  --disable-caching, -dc
+                        Disable caching
 
 x509 Certificate Configuration:
   Use the following parameters to configure the HTTPS certificate
@@ -65,10 +70,16 @@ x509 Certificate Configuration:
                         Certificate file for the server to use
   --keyfile KEYFILE, -k KEYFILE
                         Keyfile corresponding to certificate file
+
+x509 Certificate Generation Configuration:
+  Use the following parameters to override default certificate generation
+  path and name
+
   --generate, -g        Generate and use a self-signed certificate in /tmp.
-  --gcertfile GCERTFILE
+  --gcertfile GCERTFILE, -gc GCERTFILE
                         Path to certificate file to be generated.
-  --gkeyfile GKEYFILE   Path to keyfile to be generated.
+  --gkeyfile GKEYFILE, -gk GKEYFILE
+                        Path to keyfile to be generated.
 
 Basic Authentication:
   Use the following parameters to configure the server to use basic
@@ -76,8 +87,14 @@ Basic Authentication:
 
   --basic-username BASIC_USERNAME, -bu BASIC_USERNAME
                         Username for basic authentication
-  --basic-password BASIC_PASSWORD, -pu BASIC_PASSWORD
+  --basic-password BASIC_PASSWORD, -bp BASIC_PASSWORD
                         Password for basic authentication
+
+Obfuscation:
+  Configure the server to implement file obfuscation. JavaScript is injected
+  into the browser to handle obfuscation at the client.
+
+  --enable-b64          Enable double base 64 obfuscation of files.
 
 ```
 
