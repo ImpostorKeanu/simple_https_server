@@ -657,8 +657,11 @@ def run_server(interface, port, keyfile, certfile,
         print()
     finally:
         if kwargs['generate']:
-            remove('/tmp/self_signed.crt')
-            remove('/tmp/self_signed.key')
+            # only remove files if they weren't manually specified
+            if certfile == "/tmp/self_signed.crt":
+                remove('/tmp/self_signed.crt')
+            if keyfile == "/tmp/self_signed.key":
+                remove('/tmp/self_signed.key')
 
 def generate_certificate(certfile, keyfile):
 
@@ -722,14 +725,21 @@ if __name__ == '__main__':
         help="Keyfile corresponding to certificate file")
     
     # certificate defaults
-     # used for certificate generation
+    # used for certificate generation
+
+    cert_gen_group = parser.add_argument_group('x509 Certificate Generation Configuration',
+            '''Use the following parameters to override default certificate generation
+            path and name
+            ''')
+
     certfile = '/tmp/self_signed.crt'
     keyfile = '/tmp/self_signed.key'
-    cert_group.add_argument('--generate', '-g', default=None, action='store_true',
+
+    cert_gen_group.add_argument('--generate', '-g', default=None, action='store_true',
         help="Generate and use a self-signed certificate in /tmp.")
-    cert_group.add_argument('--gcertfile', default=certfile,
+    cert_gen_group.add_argument('--gcertfile', '-gc', default=certfile,
         help="Path to certificate file to be generated.")
-    cert_group.add_argument('--gkeyfile', default=keyfile,
+    cert_gen_group.add_argument('--gkeyfile', '-gk', default=keyfile,
         help="Path to keyfile to be generated.")
 
     auth_arg_group = parser.add_argument_group('Basic Authentication',
@@ -759,7 +769,7 @@ if __name__ == '__main__':
         raise ArgumentError("""Script requires a username and password for
         basic authentication""")
 
-    # assure certificate arguments are as expected
+    # ensure certificate arguments are as expected
     if not args.certfile and not args.keyfile and not args.generate:
         raise ArgumentError(
         """Script requires either --generate to be set or both of arguments
@@ -787,8 +797,11 @@ if __name__ == '__main__':
 
 
     if args.generate:
-        generate_certificate(certfile, keyfile)
-        args.certfile = certfile
-        args.keyfile = keyfile
+        if args.certfile or args.keyfile:
+            print("[!] Warning: cert and key file arguments are ignored when generating.")
+
+        args.certfile = args.gcertfile
+        args.keyfile = args.gkeyfile
+        generate_certificate(args.certfile, args.keyfile)
 
     run_server(**args.__dict__)
