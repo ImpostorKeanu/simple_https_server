@@ -101,7 +101,7 @@ def list_files(self, path, b64_encoded):
         self.send_error(404, "No permission to list directory")
         return None
 
-    file_list.sort(key=lambda a: a.lower())
+    file_list.sort(key=str.casefold)
 
     # io object to receive links
     f = StringIO()
@@ -165,7 +165,7 @@ def list_directory(self, path, b64_encoded):
     except os.error:
         self.send_error(404, "No permission to list directory")
         return None
-    file_list.sort(key=lambda a: a.lower())
+    file_list.sort(key=str.casefold)
     f = BytesIO()
     displaypath = html.escape(urllib.parse.unquote(self.path))
     f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
