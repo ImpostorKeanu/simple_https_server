@@ -4,22 +4,22 @@ import argparse
 import http.server
 import ssl
 from pathlib import Path
-from os import chdir,remove
+from os import chdir, remove
 import os
 import posixpath
-from OpenSSL import crypto, SSL
 from random import randint
 from base64 import b64encode, b64decode
 from http import HTTPStatus
-import urllib.request, urllib.parse, urllib.error
+from urllib import parse
 import datetime
 import html
 import shutil
 import mimetypes
 import re
-from io import BytesIO,StringIO
+from io import BytesIO, StringIO
 import email
 from hashlib import md5
+from OpenSSL import crypto
 
 '''
 Credit to the following people for providing file upload capabilities:
@@ -107,7 +107,7 @@ def list_files(self, path, b64_encoded):
     f = StringIO()
 
     # html escape the displaypath
-    displaypath = html.escape(urllib.parse.unquote(self.path))
+    displaypath = html.escape(parse.unquote(self.path))
 
     # Generate download links
     for name in file_list:
@@ -126,7 +126,7 @@ def list_files(self, path, b64_encoded):
             displayname = name + "@"
             # Note: a link to a directory displays with @ and links with /
 
-        linkname = urllib.parse.quote(linkname)
+        linkname = parse.quote(linkname)
         displayname = html.escape(displayname)
 
         # Handle insertion of JS links
@@ -167,7 +167,7 @@ def list_directory(self, path, b64_encoded):
         return None
     file_list.sort(key=str.casefold)
     f = BytesIO()
-    displaypath = html.escape(urllib.parse.unquote(self.path))
+    displaypath = html.escape(parse.unquote(self.path))
     f.write(b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
     f.write(("<html>\n<title>Directory listing for %s</title>\n" % displaypath).encode())
     f.write(("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath).encode())
@@ -259,7 +259,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
 
         f = None
         if os.path.isdir(path):
-            parts = urllib.parse.urlsplit(self.path)
+            parts = parse.urlsplit(self.path)
 
             # ====================================
             # REDIRECT BROWSER BACK TO PATH WITH /
@@ -271,7 +271,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(HTTPStatus.MOVED_PERMANENTLY)
                 new_parts = (parts[0], parts[1], parts[2] + '/',
                              parts[3], parts[4])
-                new_url = urllib.parse.urlunsplit(new_parts)
+                new_url = parse.urlunsplit(new_parts)
                 self.send_header("Location", new_url)
                 self.end_headers()
                 return None
@@ -401,7 +401,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         else: path = path[0]
 
         path = path.split('#',1)[0]
-        path = posixpath.normpath(urllib.parse.unquote(path))
+        path = posixpath.normpath(parse.unquote(path))
         words = path.split('/')
         words = [_f for _f in words if _f]
         path = os.getcwd()
