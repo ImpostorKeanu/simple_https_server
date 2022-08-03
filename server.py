@@ -633,12 +633,10 @@ def run_server(interface, port, keyfile, certfile,
                 CorsHandler)
     
 
-    # wrap the httpd socket in ssl
-    httpd.socket = ssl.wrap_socket(httpd.socket,
-        server_side=True,
-        certfile=certfile,
-        keyfile=keyfile,
-        ssl_version=ssl.PROTOCOL_TLSv1_2)
+    # wrap the httpd socket in ssl using recommended wrap function and TLS protocol
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(certfile, keyfile)
+    httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
 
     chdir(webroot)
 
