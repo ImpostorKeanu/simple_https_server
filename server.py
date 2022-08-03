@@ -81,9 +81,9 @@ def upload_form(self):
         f.write("<form ENCTYPE=\"multipart/form-data\" method=\"post\" onsubmit=\"return encoder(2);\">")
     else:
         f.write("<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
-    f.write("<input name=\"file\" type=\"file\"/><br><br>")
-    f.write("<input name=\"submit\" type=\"submit\" value=\"Upload\"/>")
-    f.write("<input name=\"refresh\" type=\"button\"  onclick=\"loadFiles();\" value=\"Refresh Files\"/>")
+    f.write("<input name=\"file\" type=\"file\" required><br><br>")
+    f.write("<input name=\"submit\" type=\"submit\" value=\"Upload\">")
+    f.write("<input name=\"refresh\" type=\"button\"  onclick=\"loadFiles();\" value=\"Refresh Files\">")
     if self.B64_ENCODE_PAYLOAD:
         f.write("<br><br><input name=\"encodeCheckbox\" type=\"checkbox\" checked onchange=\"toggleEncodeUploads();\">")
         f.write("<label for=\"encodeCheckbox\">Base64 encode before <b>uploading</b></label>")
