@@ -327,7 +327,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
                                 fs.st_mtime, datetime.timezone.utc)
                             # remove microseconds, like in If-Modified-Since
                             last_modif = last_modif.replace(microsecond=0)
-    
+
                             if last_modif <= ims:
                                 self.send_response(HTTPStatus.NOT_MODIFIED)
                                 self.end_headers()
@@ -355,7 +355,8 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
                 )
 
                 # TODO: Make iterations configurable
-                for i in range(0,2): encoded = b64encode(encoded)
+                for i in range(2):
+                    encoded = b64encode(encoded)
 
                 encoded_length = len(encoded)
 
@@ -408,11 +409,12 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         for word in words:
             drive, word = os.path.splitdrive(word)
             head, word = os.path.split(word)
-            if word in (os.curdir, os.pardir): continue
+            if word in (os.curdir, os.pardir):
+                continue
             path = os.path.join(path, word)
 
         return path,b64_encoded
- 
+
     def copyfile(self, source, outputfile):
         """Copy all data between two file objects.
         The SOURCE argument is a file object open for reading
@@ -425,7 +427,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         to copy binary data as well.
         """
         shutil.copyfileobj(source, outputfile)
- 
+
     def guess_type(self, path):
         """Guess the type of a file.
         Argument is a PATH (a filename).
@@ -436,7 +438,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         as a default; however it would be permissible (if
         slow) to look inside the data to make a better guess.
         """
- 
+
         base, ext = posixpath.splitext(path)
         if ext in self.extensions_map:
             return self.extensions_map[ext]
@@ -445,7 +447,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
             return self.extensions_map[ext]
         else:
             return self.extensions_map['']
- 
+
     if not mimetypes.inited:
         mimetypes.init() # try to read system mime.types
     extensions_map = mimetypes.types_map.copy()
@@ -499,7 +501,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         except IOError:
             self.log_error("Cannot write to target directory. (Permissions Problem)")
             return (False, "Can't create file to write, do you have permission to write?")
-        
+
         # Read file content
         preline = self.rfile.readline()
         remainbytes -= len(preline)
@@ -518,19 +520,22 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
                 if CorsHandler.B64_ENCODE_PAYLOAD and b64_encoded:
 
                     # Read in the file content
-                    with open(fn,'rb') as f: data = f.read()
+                    with open(fn,'rb') as f:
+                        data = f.read()
 
                     self.log_message('Decoding uploaded file {} ({} bytes)' \
                         .format(fn, len(data)))
 
                     # Decode the data
-                    for i in range(0,2): data = b64decode(data)
+                    for i in range(0,2):
+                        data = b64decode(data)
 
                     self.log_message('Decoded uploaded file {} ({} bytes, md5sum: {})' \
                         .format(fn, len(data), md5sum(data)))
 
                     # Open and write the decoded content
-                    with open(fn,'wb') as f: f.write(data)
+                    with open(fn,'wb') as f:
+                        f.write(data)
 
                 self.log_message("File '%s' uploaded by '%s:%d'",fn, self.client_ip, self.client_port)
                 return (True, "File '%s' upload success!" % fn)
@@ -542,7 +547,7 @@ class CorsHandler(http.server.SimpleHTTPRequestHandler):
         return (False, "Unexpected end of data")
 
 class BasicAuthHandler(CorsHandler):
-    
+
     def do_HEAD(self):
         self.send_response(200)
         self.send_header('Content-Type', 'text/html')
@@ -578,7 +583,7 @@ def do_basic_POST(self):
         self.wfile.write(bytes(self.headers.get('Authorization'),'utf-8'))
         self.wfile.write(bytes('Not authenticated','utf-8'))
 
-def run_server(interface, port, keyfile, certfile, 
+def run_server(interface, port, keyfile, certfile,
         webroot=None, enable_uploads=False, enable_b64=False,
         disable_caching=False,
         *args, **kwargs):
@@ -610,7 +615,7 @@ def run_server(interface, port, keyfile, certfile,
     else:
 
         CorsHandler.uploads_enabled = False
-    
+
     server_address = (interface, port)
 
     # set up basic authentication if credentials are supplied
@@ -631,7 +636,7 @@ def run_server(interface, port, keyfile, certfile,
 
         httpd = http.server.HTTPServer(server_address,
                 CorsHandler)
-    
+
 
     # wrap the httpd socket in ssl using recommended wrap function and TLS protocol
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -675,7 +680,7 @@ def generate_certificate(certfile, keyfile):
     cert.get_subject().ST = str(randint(1,10000000))
     cert.get_subject().L  = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
     cert.get_subject().O  = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
-    cert.get_subject().OU = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD" 
+    cert.get_subject().OU = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
     cert.get_subject().CN = "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"
     cert.set_serial_number(1000)
     cert.gmtime_adj_notBefore(0)
@@ -721,7 +726,7 @@ if __name__ == '__main__':
         help="Certificate file for the server to use")
     cert_group.add_argument('--keyfile', '-k', default=None,
         help="Keyfile corresponding to certificate file")
-    
+
     # certificate defaults
     # used for certificate generation
 
