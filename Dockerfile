@@ -7,7 +7,7 @@ RUN apt-get update
 RUN apt-get install bash net-tools -y
 
 # Install python dependencies
-RUN apt-get install python3.7 python3-pip python3-openssl -y
+RUN apt-get install python3.9 python3-pip python3-openssl -y
 
 # Update SSL requirements for the os
 RUN sed -r -e 's/MinProtocol =.+/MinProtocol = SSLv1/' -i /etc/ssl/openssl.cnf
