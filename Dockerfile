@@ -4,7 +4,7 @@ FROM debian:stable
 RUN apt-get update
 
 # Install non-python components
-RUN apt-get install bash net-tools -y
+RUN apt-get install bash net-tools iproute2 -y
 
 # Install python dependencies
 RUN apt-get install python3.9 python3-pip python3-openssl -y
