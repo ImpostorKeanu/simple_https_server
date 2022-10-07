@@ -47,8 +47,8 @@ elif [[ ! $USERNAME && $PASSWORD ]]; then
     echo "Password supplied with no username. Exiting.";
     exit;
 else
-    echo "Credentials not supplied. Basic authentication disabled.";
-    exit;
+    echo "Credentials not supplied.";
+    echo "⚠️ WARNING: Basic authentication disabled!"
 fi
 
 # =====================
